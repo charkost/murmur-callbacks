@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -21,27 +20,22 @@
 #define VALIDATE_CONNECTION_PACKET_SIZE 14
 #define READ_BUFFER_SIZE 512
 
-int callbacks_add(void); /* Adds callbacks */
-void callbacks_remove(int); /* Removes callbacks (SIGINT signal handler) */
-int callbacks_listen(void); /* Listens for callbacks */
-
-int adder_sockfd = 0, listener_sockfd = 0, listener_connfd = 0;
-uint16_t listener_port = LISTEN_PORT;
-const unsigned char *listener_port_bytes = (unsigned char *)&listener_port;
+int callbacks_add(unsigned char *); /* Adds callbacks */
+int callbacks_listen(uint16_t); /* Listens for callbacks */
 
 int main(void)
 {
 	int r;
+	uint16_t listener_port = htons(LISTEN_PORT);
+	unsigned char *listener_port_bytes = (unsigned char *)&listener_port;
 
-	listener_port = htons(listener_port);
-
-	if ((r = callbacks_add()) > 0)
+	if ((r = callbacks_add(listener_port_bytes)) > 0)
 		return r;
 
-	return callbacks_listen();
+	return callbacks_listen(listener_port);
 }
 
-int callbacks_add(void)
+int callbacks_add(unsigned char *listener_port_bytes)
 {
 	const unsigned char ice_isA_packet[] =
 	{
@@ -64,6 +58,7 @@ int callbacks_add(void)
 	};
 	unsigned char read_buffer[READ_BUFFER_SIZE];
 	struct sockaddr_in serv_addr;
+	int adder_sockfd = 0;
 
 	printf("Creating callbacks... ");
 	fflush(stdout);
@@ -99,65 +94,18 @@ int callbacks_add(void)
 		fprintf(stderr, "\nError: Failed to send addCallback_packet\n");
 		return 1;
 	}
-	signal(SIGINT, callbacks_remove); /* Handle Ctrl + c */
+
 	if (read(adder_sockfd, read_buffer, READ_BUFFER_SIZE) != ADDCALLBACK_REPLY_PACKET_SIZE) {
 		fprintf(stderr, "\nError: Failed to receive addCallback_packet success reply\n");
 		return 1;
 	}
+	close(adder_sockfd);
 
 	printf("Done\n");
 	return 0;
 }
 
-void callbacks_remove(int fu)
-{
-	const unsigned char removeCallback_packet[] =
-	{
-		0x49, 0x63, 0x65, 0x50, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x75, 0x00, 0x00, 0x00, 0x05, 0x00,
-		0x00, 0x00, 0x04, 0x4d, 0x65, 0x74, 0x61, 0x00, 0x00, 0x0e, 0x72, 0x65, 0x6d, 0x6f, 0x76, 0x65,
-		0x43, 0x61, 0x6c, 0x6c, 0x62, 0x61, 0x63, 0x6b, 0x00, 0x00, 0x4b, 0x00, 0x00, 0x00, 0x01, 0x00,
-		0x24, 0x44, 0x35, 0x35, 0x31, 0x30, 0x41, 0x33, 0x35, 0x2d, 0x46, 0x41, 0x38, 0x31, 0x2d, 0x34,
-		0x42, 0x38, 0x30, 0x2d, 0x41, 0x43, 0x32, 0x32, 0x2d, 0x41, 0x41, 0x30, 0x35, 0x32, 0x46, 0x42,
-		0x34, 0x44, 0x41, 0x36, 0x36, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x19, 0x00, 0x00, 0x00,
-		0x01, 0x00, 0x09, 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, listener_port_bytes[1],
-		listener_port_bytes[0], 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00
-	};
-	const unsigned char close_connection_packet[] =
-	{
-		0x49, 0x63, 0x65, 0x50, 0x01, 0x00, 0x01, 0x00, 0x04, 0x01, 0x0e, 0x00, 0x00, 0x00
-	};
-	unsigned char read_buffer[READ_BUFFER_SIZE];
-
-	(void)fu; /* Bypass warnings for unused variable */
-
-	printf("\nRemoving callbacks... ");
-	fflush(stdout);
-
-	if (write(adder_sockfd, removeCallback_packet, sizeof(removeCallback_packet)) < 0)
-		fprintf(stderr, "Error: Failed to send removeCallback_packet");
-
-	if (read(adder_sockfd, read_buffer, READ_BUFFER_SIZE) < REMOVECALLBACK_REPLY_PACKET_SIZE)
-		fprintf(stderr, "Error: Failed to receive removeCallback_packet success reply");
-
-	if (listener_connfd == 0)
-		goto shutdown_socks;
-
-	if (write(listener_connfd, close_connection_packet, sizeof(close_connection_packet)) < 0)
-		fprintf(stderr, "Error: Failed to send close_connection_packet");
-
-	read(listener_connfd, read_buffer, READ_BUFFER_SIZE);
-	close(listener_connfd);
-
-shutdown_socks:
-	close(adder_sockfd);
-	if (listener_sockfd != 0)
-		close(listener_sockfd);
-
-	printf("Done\n");
-	exit(EXIT_SUCCESS);
-}
-
-int callbacks_listen(void)
+int callbacks_listen(uint16_t listener_port)
 {
 	const unsigned char validate_packet[] =
 	{
@@ -166,6 +114,7 @@ int callbacks_listen(void)
 	struct sockaddr_in serv_addr;
 	char read_buffer[READ_BUFFER_SIZE];
 	char *username;
+	int listener_sockfd = 0, listener_connfd = 0;
 	int n;
 	const int optval = 1;
 
