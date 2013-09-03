@@ -115,7 +115,6 @@ int callbacks_listen(uint16_t listener_port)
 	char read_buffer[READ_BUFFER_SIZE];
 	char *username;
 	int listener_sockfd = 0, listener_connfd = 0;
-	int n;
 	const int optval = 1;
 
 	listener_sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -144,7 +143,7 @@ int callbacks_listen(uint16_t listener_port)
 		if (write(listener_connfd, validate_packet, sizeof(validate_packet)) < 0)
 			fprintf(stderr, "\nError: Failed to send validate_packet\n");
 
-		while ((n = read(listener_connfd, read_buffer, sizeof(read_buffer))) > 0) {
+		while (read(listener_connfd, read_buffer, sizeof(read_buffer)) > 0) {
 			/* Close connection when related packet received */
 			if (read_buffer[8] == 0x4) {
 				close(listener_connfd);
