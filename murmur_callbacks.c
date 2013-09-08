@@ -16,9 +16,8 @@
 #define MURMUR_PORT 6502
 #define ICE_ISA_REPLY_PACKET_SIZE 26
 #define ADDCALLBACK_REPLY_PACKET_SIZE 25
-#define REMOVECALLBACK_REPLY_PACKET_SIZE 25
 #define VALIDATE_CONNECTION_PACKET_SIZE 14
-#define READ_BUFFER_SIZE 512
+#define READ_BUFFER_SIZE 5000
 
 int callbacks_add(unsigned char *); /* Adds callbacks */
 int callbacks_listen(uint16_t); /* Listens for callbacks */
@@ -153,12 +152,12 @@ int callbacks_listen(uint16_t listener_port)
 			/* Determine if received packet represents userConnected or userDisconnected callback */
 			if (read_buffer[62] == 'C') { /* Connected */
 				username = read_buffer + 99;
-				username[(unsigned)read_buffer[98]] = '\0';
+				username[(unsigned)*(username - 1)] = '\0';
 				printf("Murmur: %s connected\n", username);
 			}
 			else if (read_buffer[62] == 'D') { /* Disconnected */
 				username = read_buffer + 102;
-				username[(unsigned)read_buffer[101]] = '\0';
+				username[(unsigned)*(username - 1)] = '\0';
 				printf("Murmur: %s disconnected\n", username);
 			}
 		}
