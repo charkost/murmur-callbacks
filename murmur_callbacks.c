@@ -114,10 +114,9 @@ int callbacks_listen(uint16_t listener_port)
 	char read_buffer[READ_BUFFER_SIZE];
 	char *username;
 	int listener_sockfd = 0, listener_connfd = 0;
-	const int optval = 1;
 
 	listener_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	setsockopt(listener_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	setsockopt(listener_sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(optval));
 
 	memset(&serv_addr, '0', sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
