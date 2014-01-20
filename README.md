@@ -17,3 +17,7 @@ Enjoy!
 
 
 Charalampos Kostas <root@charkost.gr>
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/charkost/murmur-callbacks/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
